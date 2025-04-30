@@ -89,6 +89,13 @@ To deploy the application on an EC2 instance:
    ./ec2-setup-minimal.sh
    ```
    This minimal script is optimized for low memory usage and creates swap space to prevent out-of-memory errors.
+   
+   For extremely resource-constrained t2.micro instances (if you still encounter memory issues):
+   ```
+   chmod +x ec2-setup-ultra-minimal.sh
+   ./ec2-setup-ultra-minimal.sh
+   ```
+   This ultra-minimal script skips the React build process entirely and uses a pre-built static HTML/JS implementation.
 
 5. The application will be accessible at http://your-ec2-ip
 
