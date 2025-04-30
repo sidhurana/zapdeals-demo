@@ -47,8 +47,9 @@ cd zapdeals-demo
 # Set up backend
 echo "Setting up backend..."
 cd ~/zapdeals-demo/backend
-pip3 install -r requirements.txt
-pip3 install uvicorn
+# Use --ignore-installed flag to avoid conflicts with system packages
+pip3 install --ignore-installed -r requirements.txt
+pip3 install --ignore-installed uvicorn
 
 # Create backend service file
 echo "Creating backend service..."
