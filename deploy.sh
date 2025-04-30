@@ -34,7 +34,13 @@ pip3 --version
 
 # Install nginx
 echo "Installing nginx..."
-sudo amazon-linux-extras install nginx1 -y
+# Try amazon-linux-extras first (Amazon Linux 2)
+if command -v amazon-linux-extras &> /dev/null; then
+    sudo amazon-linux-extras install nginx1 -y
+else
+    # Fall back to regular package manager
+    sudo yum install nginx -y || sudo amazon-linux-extras install nginx1 -y || sudo apt-get update && sudo apt-get install -y nginx
+fi
 sudo systemctl enable nginx
 sudo systemctl start nginx
 
