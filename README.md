@@ -43,9 +43,9 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-## Deployment on Amazon Linux 2 EC2
+## Deployment on EC2
 
-To deploy the application on an Amazon Linux 2 EC2 instance:
+To deploy the application on an EC2 instance:
 
 1. SSH into your EC2 instance:
    ```
@@ -62,17 +62,23 @@ To deploy the application on an Amazon Linux 2 EC2 instance:
    cd zapdeals-demo
    ```
 
-4. Make the deployment script executable:
+4. Choose the appropriate setup script:
+
+   For Amazon Linux 2:
    ```
    chmod +x deploy.sh
-   ```
-
-5. Run the deployment script:
-   ```
    ./deploy.sh
    ```
 
-6. The application will be accessible at http://your-ec2-ip
+   For other Amazon Linux versions or if you encounter issues with amazon-linux-extras:
+   ```
+   chmod +x ec2-setup.sh
+   ./ec2-setup.sh
+   ```
+
+5. The application will be accessible at http://your-ec2-ip
+
+Note: Make sure your EC2 security group allows inbound traffic on ports 80 (HTTP) and 8000 (API).
 
 ## Security Considerations
 
