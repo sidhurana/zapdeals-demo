@@ -76,6 +76,13 @@ To deploy the application on an EC2 instance:
    ./ec2-setup.sh
    ```
 
+   If you encounter package conflicts (e.g., "Cannot uninstall requests, RECORD file not found"):
+   ```
+   chmod +x ec2-setup-alt.sh
+   ./ec2-setup-alt.sh
+   ```
+   This alternative script uses a Python virtual environment to avoid conflicts with system packages.
+
 5. The application will be accessible at http://your-ec2-ip
 
 Note: Make sure your EC2 security group allows inbound traffic on ports 80 (HTTP) and 8000 (API).
