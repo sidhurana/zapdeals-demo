@@ -91,11 +91,30 @@ sudo systemctl start zapdeals-api
 echo "Setting up frontend..."
 cd ~/zapdeals-demo/frontend
 
-# Install packages in production mode to save memory
-npm install --production --no-optional
+# Increase swap space before npm install
+echo "Increasing swap space for npm install..."
+sudo swapoff -a
+sudo dd if=/dev/zero of=/swapfile bs=128M count=32
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+free -h
+
+# Use minimal Firebase implementation to avoid memory issues
+echo "Setting up minimal Firebase implementation..."
+cp ../firebase-minimal.js src/firebase.js
+
+# Install packages without Firebase to avoid postinstall issues
+echo "Installing frontend dependencies..."
+# Remove firebase from package.json
+sed -i 's/"firebase": "^9.6.1",//' package.json
+
+# Install only essential packages in production mode
+npm install --production --no-optional react react-dom react-bootstrap bootstrap axios
 
 # Build frontend with minimal memory usage
 echo "Building frontend..."
+export NODE_OPTIONS="--max-old-space-size=512"
 npm run build
 
 # Configure nginx with minimal settings
