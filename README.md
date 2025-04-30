@@ -82,6 +82,13 @@ To deploy the application on an EC2 instance:
    ./ec2-setup-alt.sh
    ```
    This alternative script uses a Python virtual environment to avoid conflicts with system packages.
+   
+   For t2.micro instances with limited memory (if you encounter "JavaScript heap out of memory" errors):
+   ```
+   chmod +x ec2-setup-minimal.sh
+   ./ec2-setup-minimal.sh
+   ```
+   This minimal script is optimized for low memory usage and creates swap space to prevent out-of-memory errors.
 
 5. The application will be accessible at http://your-ec2-ip
 
