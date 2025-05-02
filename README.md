@@ -40,8 +40,22 @@ npm start
 ```bash
 cd backend
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
+
+### Port Forwarding (for external access)
+The repository includes a port forwarding script (`forward.py`) that allows external access to the application:
+
+```bash
+# Start the port forwarding script
+python forward.py
+```
+
+This script forwards requests from port 12001 to the Nginx server running on port 80, which in turn serves the frontend and proxies API requests to the backend server on port 8000.
+
+The application will be accessible at:
+- http://localhost:12001 (local access)
+- https://work-1-egmcjtdxsefviltg.prod-runtime.all-hands.dev (external access)
 
 ## Deployment on EC2
 
