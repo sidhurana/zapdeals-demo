@@ -115,6 +115,82 @@ To deploy the application on an EC2 instance:
 
 Note: Make sure your EC2 security group allows inbound traffic on ports 80 (HTTP) and 8000 (API).
 
+## Production Deployment with Nginx
+
+For a production deployment with Nginx:
+
+1. Copy the frontend files to the Nginx web root:
+   ```bash
+   sudo mkdir -p /var/www/zapdeals/frontend/build
+   sudo cp -r frontend/build/* /var/www/zapdeals/frontend/build/
+   ```
+
+2. Set the correct ownership for the files:
+   ```bash
+   sudo chown -R nginx:nginx /var/www/zapdeals
+   ```
+
+3. Create an Nginx configuration file:
+   ```bash
+   sudo nano /etc/nginx/conf.d/zapdeals.conf
+   ```
+
+4. Add the following configuration:
+   ```
+   server {
+       listen 80;
+       listen [::]:80;
+
+       root /var/www/zapdeals/frontend/build;
+       index index.html;
+
+       server_name _;
+
+       location / {
+           try_files $uri $uri/ /index.html;
+       }
+
+       location /api/ {
+           proxy_pass http://localhost:8000/api/;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection 'upgrade';
+           proxy_set_header Host $host;
+           proxy_cache_bypass $http_upgrade;
+       }
+   }
+   ```
+
+5. Disable the default Nginx site (if needed):
+   ```bash
+   sudo rm -f /etc/nginx/sites-enabled/default
+   ```
+
+6. Test the Nginx configuration:
+   ```bash
+   sudo nginx -t
+   ```
+
+7. Restart Nginx:
+   ```bash
+   sudo systemctl restart nginx
+   ```
+
+8. Start the backend server:
+   ```bash
+   cd backend
+   nohup uvicorn main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+   ```
+
+Alternatively, you can use the `setup_production_environment()` function in the `forward.py` script to automate these steps:
+
+```python
+# Uncomment this line in forward.py
+# setup_production_environment()
+# Then run:
+sudo python forward.py
+```
+
 ## Security Considerations
 
 - The Firebase configuration in `firebase.js` uses placeholder values. In a production environment, you should replace these with your actual Firebase project credentials.

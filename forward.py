@@ -5,6 +5,7 @@ import urllib.error
 import urllib.parse
 import logging
 import sys
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -16,6 +17,11 @@ logger = logging.getLogger('zapdeals-proxy')
 
 PORT = 12001  # Use the port provided in the runtime information
 TARGET_HOST = "http://localhost:80"  # The Nginx server
+
+# Note: For production deployment
+# 1. Copy frontend files to /var/www/zapdeals/frontend/build
+# 2. Set ownership: chown -R nginx:nginx /var/www/zapdeals
+# 3. Update Nginx config to use root /var/www/zapdeals/frontend/build
 
 class ProxyHandler(http.server.BaseHTTPRequestHandler):
     def do_HEAD(self):
@@ -87,8 +93,73 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 class ThreadedHTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
 
+def setup_production_environment():
+    """
+    Helper function to set up the production environment.
+    This would typically be run on the server during deployment.
+    """
+    import subprocess
+    import shutil
+    
+    try:
+        # Create directory structure if it doesn't exist
+        os.makedirs('/var/www/zapdeals/frontend/build', exist_ok=True)
+        
+        # Copy frontend files
+        if os.path.exists('./frontend/build'):
+            shutil.copytree('./frontend/build', '/var/www/zapdeals/frontend/build', dirs_exist_ok=True)
+            logger.info("Copied frontend files to /var/www/zapdeals/frontend/build")
+        else:
+            logger.error("Frontend build directory not found")
+            return False
+        
+        # Change ownership to nginx:nginx
+        subprocess.run(['chown', '-R', 'nginx:nginx', '/var/www/zapdeals'])
+        logger.info("Changed ownership of /var/www/zapdeals to nginx:nginx")
+        
+        # Update Nginx configuration
+        nginx_config = """
+server {
+    listen 80;
+    listen [::]:80;
+
+    root /var/www/zapdeals/frontend/build;
+    index index.html;
+
+    server_name _;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:8000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+"""
+        with open('/etc/nginx/conf.d/zapdeals.conf', 'w') as f:
+            f.write(nginx_config)
+        logger.info("Updated Nginx configuration")
+        
+        # Restart Nginx
+        subprocess.run(['systemctl', 'restart', 'nginx'])
+        logger.info("Restarted Nginx")
+        
+        return True
+    except Exception as e:
+        logger.error(f"Error setting up production environment: {str(e)}")
+        return False
+
 if __name__ == "__main__":
     try:
+        # Uncomment the line below to set up the production environment
+        # setup_production_environment()
+        
         httpd = ThreadedHTTPServer(("0.0.0.0", PORT), ProxyHandler)
         logger.info(f"Starting proxy server on port {PORT}, forwarding to {TARGET_HOST}")
         httpd.serve_forever()
