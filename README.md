@@ -126,40 +126,38 @@ For a production deployment with Nginx:
    ```
 
    This script will:
-   - Create the directory structure at `/var/www/zapdeals-demo/frontend/build`
-   - Copy the frontend files to the Nginx web root
-   - Set the correct ownership for the files (nginx:nginx)
-   - Copy the Nginx configuration file to `/etc/nginx/conf.d/zapdeals.conf`
+   - Install Nginx if not already installed
+   - Create the Nginx configuration at `/etc/nginx/conf.d/zapdeals.conf`
+   - Set the correct root directory to `/workspace/zapdeals-demo/frontend/build`
+   - Set the correct ownership for the files (www-data:www-data on Debian/Ubuntu or nginx:nginx on CentOS/RHEL)
    - Disable the default Nginx site to avoid conflicts
-   - Test and restart Nginx
+   - Restart Nginx
+   - Start the backend server on port 8000
 
-2. Start the backend server:
-   ```bash
-   chmod +x start_backend.sh
-   ./start_backend.sh
-   ```
-
-The Nginx configuration (`nginx.conf`) includes:
+The Nginx configuration created by the script includes:
 
 ```
 server {
     listen 80;
-    server_name localhost;
+    listen [::]:80;
 
-    # Frontend static files
+    # Correct root directory path
+    root /workspace/zapdeals-demo/frontend/build;
+    index index.html;
+
+    server_name _;
+
     location / {
-        root /var/www/zapdeals-demo/frontend/build;
-        index index.html;
         try_files $uri $uri/ /index.html;
     }
 
-    # API proxy
     location /api/ {
         proxy_pass http://localhost:8000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
     }
 }
 ```
@@ -167,9 +165,41 @@ server {
 **Important Note:** Make sure the Nginx user has permission to access the frontend files. The setup script sets the correct ownership, but if you're doing this manually, remember to run:
 
 ```bash
-sudo chown -R nginx:nginx /var/www/zapdeals-demo
-sudo chmod -R 755 /var/www/zapdeals-demo
+# For Debian/Ubuntu
+sudo chown -R www-data:www-data /workspace/zapdeals-demo/frontend/build
+sudo chmod -R 755 /workspace/zapdeals-demo/frontend/build
+
+# For CentOS/RHEL
+sudo chown -R nginx:nginx /workspace/zapdeals-demo/frontend/build
+sudo chmod -R 755 /workspace/zapdeals-demo/frontend/build
 ```
+
+**Troubleshooting Nginx 500 Errors:**
+
+If you encounter a 500 error with Nginx, check the following:
+
+1. Verify the root directory path in the Nginx configuration:
+   ```bash
+   grep -r "root" /etc/nginx/conf.d/
+   ```
+   Make sure it points to the correct location where your frontend files are stored.
+
+2. Check Nginx error logs:
+   ```bash
+   sudo tail -f /var/log/nginx/error.log
+   ```
+
+3. Verify file permissions:
+   ```bash
+   ls -la /workspace/zapdeals-demo/frontend/build
+   ```
+   The Nginx user (www-data or nginx) must have read access to these files.
+
+4. Test the backend API directly:
+   ```bash
+   curl http://localhost:8000/api/deals
+   ```
+   If this works but the proxied version doesn't, there might be an issue with the Nginx proxy configuration.
 
 ## Security Considerations
 
