@@ -6,6 +6,8 @@ import urllib.parse
 import logging
 import sys
 import os
+import json
+import mimetypes
 
 # Configure logging
 logging.basicConfig(
@@ -16,7 +18,8 @@ logging.basicConfig(
 logger = logging.getLogger('zapdeals-proxy')
 
 PORT = 12001  # Use the port provided in the runtime information
-TARGET_HOST = "http://localhost:80"  # The Nginx server
+BACKEND_HOST = "http://localhost:8000"  # The backend API server
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend/build")
 
 # Note: For production deployment
 # 1. Copy frontend files to /var/www/zapdeals/frontend/build
@@ -25,26 +28,78 @@ TARGET_HOST = "http://localhost:80"  # The Nginx server
 
 class ProxyHandler(http.server.BaseHTTPRequestHandler):
     def do_HEAD(self):
-        self.forward_request('HEAD')
+        self.handle_request('HEAD')
         
     def do_GET(self):
-        self.forward_request('GET')
+        self.handle_request('GET')
 
     def do_POST(self):
-        self.forward_request('POST')
+        self.handle_request('POST')
         
     def do_PUT(self):
-        self.forward_request('PUT')
+        self.handle_request('PUT')
         
     def do_DELETE(self):
-        self.forward_request('DELETE')
+        self.handle_request('DELETE')
         
     def do_OPTIONS(self):
-        self.forward_request('OPTIONS')
+        self.handle_request('OPTIONS')
         
-    def forward_request(self, method):
-        url = TARGET_HOST + self.path
-        logger.info(f"Forwarding {method} request to {url}")
+    def handle_request(self, method):
+        # Handle API requests
+        if self.path.startswith('/api/'):
+            self.forward_to_backend(method)
+        # Handle static files
+        else:
+            self.serve_static_file(method)
+    
+    def serve_static_file(self, method):
+        # Default to index.html for root or if file not found (for SPA routing)
+        path = self.path
+        if path == '/':
+            path = '/index.html'
+            
+        file_path = os.path.join(FRONTEND_DIR, path.lstrip('/'))
+        
+        # Check if file exists
+        if not os.path.exists(file_path) or os.path.isdir(file_path):
+            # For SPA routing, serve index.html for non-existent paths
+            file_path = os.path.join(FRONTEND_DIR, 'index.html')
+            
+        try:
+            # Determine content type
+            content_type, _ = mimetypes.guess_type(file_path)
+            if content_type is None:
+                content_type = 'application/octet-stream'
+                
+            # Read file
+            with open(file_path, 'rb') as f:
+                content = f.read()
+                
+            # Send response
+            self.send_response(200)
+            self.send_header('Content-type', content_type)
+            self.send_header('Content-length', str(len(content)))
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            
+            # Only write body for non-HEAD requests
+            if method != 'HEAD':
+                self.wfile.write(content)
+                
+            logger.info(f"Successfully served static file: {file_path}")
+            
+        except Exception as e:
+            logger.error(f"Error serving static file {file_path}: {str(e)}")
+            self.send_response(500)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            if method != 'HEAD':
+                self.wfile.write(f"Error: {str(e)}".encode())
+    
+    def forward_to_backend(self, method):
+        url = BACKEND_HOST + self.path
+        logger.info(f"Forwarding {method} request to backend: {url}")
         
         try:
             # Get request body for methods that support it
@@ -58,7 +113,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             
             # Copy headers
             for header in self.headers:
-                req.add_header(header, self.headers[header])
+                if header.lower() not in ['host', 'content-length']:
+                    req.add_header(header, self.headers[header])
                 
             # Send request
             response = urllib.request.urlopen(req)
@@ -67,6 +123,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(response.status)
             for header in response.headers._headers:
                 self.send_header(header[0], header[1])
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             
             # Only write body for non-HEAD requests
@@ -79,6 +136,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             logger.error(f"Error forwarding {method} request to {url}: {str(e)}")
             self.send_response(500)
             self.send_header('Content-type', 'text/plain')
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             if method != 'HEAD':
                 self.wfile.write(f"Error: {str(e)}".encode())
@@ -86,6 +144,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             logger.error(f"Unexpected error forwarding {method} request to {url}: {str(e)}")
             self.send_response(500)
             self.send_header('Content-type', 'text/plain')
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             if method != 'HEAD':
                 self.wfile.write(f"Unexpected error: {str(e)}".encode())
@@ -161,7 +220,7 @@ if __name__ == "__main__":
         # setup_production_environment()
         
         httpd = ThreadedHTTPServer(("0.0.0.0", PORT), ProxyHandler)
-        logger.info(f"Starting proxy server on port {PORT}, forwarding to {TARGET_HOST}")
+        logger.info(f"Starting proxy server on port {PORT}, serving frontend from {FRONTEND_DIR} and proxying API to {BACKEND_HOST}")
         httpd.serve_forever()
     except KeyboardInterrupt:
         logger.info("Stopping server...")
