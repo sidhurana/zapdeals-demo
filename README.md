@@ -119,76 +119,56 @@ Note: Make sure your EC2 security group allows inbound traffic on ports 80 (HTTP
 
 For a production deployment with Nginx:
 
-1. Copy the frontend files to the Nginx web root:
+1. Use the provided setup script:
    ```bash
-   sudo mkdir -p /var/www/zapdeals/frontend/build
-   sudo cp -r frontend/build/* /var/www/zapdeals/frontend/build/
+   chmod +x setup_nginx.sh
+   sudo ./setup_nginx.sh
    ```
 
-2. Set the correct ownership for the files:
+   This script will:
+   - Create the directory structure at `/var/www/zapdeals-demo/frontend/build`
+   - Copy the frontend files to the Nginx web root
+   - Set the correct ownership for the files (nginx:nginx)
+   - Copy the Nginx configuration file to `/etc/nginx/conf.d/zapdeals.conf`
+   - Disable the default Nginx site to avoid conflicts
+   - Test and restart Nginx
+
+2. Start the backend server:
    ```bash
-   sudo chown -R nginx:nginx /var/www/zapdeals
+   chmod +x start_backend.sh
+   ./start_backend.sh
    ```
 
-3. Create an Nginx configuration file:
-   ```bash
-   sudo nano /etc/nginx/conf.d/zapdeals.conf
-   ```
+The Nginx configuration (`nginx.conf`) includes:
 
-4. Add the following configuration:
-   ```
-   server {
-       listen 80;
-       listen [::]:80;
+```
+server {
+    listen 80;
+    server_name localhost;
 
-       root /var/www/zapdeals/frontend/build;
-       index index.html;
+    # Frontend static files
+    location / {
+        root /var/www/zapdeals-demo/frontend/build;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+    }
 
-       server_name _;
+    # API proxy
+    location /api/ {
+        proxy_pass http://localhost:8000/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
 
-       location / {
-           try_files $uri $uri/ /index.html;
-       }
+**Important Note:** Make sure the Nginx user has permission to access the frontend files. The setup script sets the correct ownership, but if you're doing this manually, remember to run:
 
-       location /api/ {
-           proxy_pass http://localhost:8000/api/;
-           proxy_http_version 1.1;
-           proxy_set_header Upgrade $http_upgrade;
-           proxy_set_header Connection 'upgrade';
-           proxy_set_header Host $host;
-           proxy_cache_bypass $http_upgrade;
-       }
-   }
-   ```
-
-5. Disable the default Nginx site (if needed):
-   ```bash
-   sudo rm -f /etc/nginx/sites-enabled/default
-   ```
-
-6. Test the Nginx configuration:
-   ```bash
-   sudo nginx -t
-   ```
-
-7. Restart Nginx:
-   ```bash
-   sudo systemctl restart nginx
-   ```
-
-8. Start the backend server:
-   ```bash
-   cd backend
-   nohup uvicorn main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
-   ```
-
-Alternatively, you can use the `setup_production_environment()` function in the `forward.py` script to automate these steps:
-
-```python
-# Uncomment this line in forward.py
-# setup_production_environment()
-# Then run:
-sudo python forward.py
+```bash
+sudo chown -R nginx:nginx /var/www/zapdeals-demo
+sudo chmod -R 755 /var/www/zapdeals-demo
 ```
 
 ## Security Considerations
