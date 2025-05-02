@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ZapDeals</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      h1 {
+        color: #4a90e2;
+      }
+      .deals-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+      }
+      .deal-card {
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 15px;
+        background-color: white;
+      }
+      .deal-card img {
+        width: 100%;
+        height: 150px;
+        object-fit: contain;
+        margin-bottom: 10px;
+      }
+      .deal-card h3 {
+        margin-top: 0;
+        font-size: 16px;
+      }
+      .deal-card .price {
+        font-weight: bold;
+        color: #e63946;
+      }
+      .deal-card .category {
+        display: inline-block;
+        background-color: #4a90e2;
+        color: white;
+        padding: 3px 8px;
+        border-radius: 3px;
+        font-size: 12px;
+        margin-top: 5px;
+      }
+      .loading {
+        text-align: center;
+        padding: 20px;
+      }
+      .error {
+        color: red;
+        text-align: center;
+        padding: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>ZapDeals</h1>
+      <p>Welcome to ZapDeals! Find the best deals across the web.</p>
+      
+      <div id="deals-container" class="deals-container">
+        <div class="loading">Loading deals...</div>
+      </div>
+      
+      <footer style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; color: #666;">
+        <p>&copy; 2025 ZapDeals. All rights reserved.</p>
+        <p>Find the best deals across the web in one place!</p>
+      </footer>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const dealsContainer = document.getElementById('deals-container');
+        let isLoading = false;
+        let hasLoaded = false;
+        
+        // Function to fetch deals from the API
+        function fetchDeals() {
+          if (isLoading || hasLoaded) return;
+          
+          isLoading = true;
+          
+          // Demo data to use if API fails
+          const demoDeals = [
+            {
+              title: "Apple AirPods Pro (2nd Generation)",
+              price: "199.99 USD",
+              image: "https://m.media-amazon.com/images/I/61SUj2aKoEL._AC_SL1500_.jpg",
+              url: "https://www.amazon.com/Apple-Generation-Cancelling-Transparency-Personalized/dp/B0BDHWDR12/",
+              category: "electronics"
+            },
+            {
+              title: "Samsung Galaxy S23 Ultra Cell Phone",
+              price: "899.99 USD",
+              image: "https://m.media-amazon.com/images/I/71Sa3dqTqzL._AC_SL1500_.jpg",
+              url: "https://www.amazon.com/Samsung-Unlocked-Smartphone-Nightography-Graphite/dp/B0BLP45GY8/",
+              category: "electronics"
+            },
+            {
+              title: "Sony WH-1000XM5 Wireless Headphones",
+              price: "328.00 USD",
+              image: "https://m.media-amazon.com/images/I/61+btxzpfDL._AC_SL1500_.jpg",
+              url: "https://www.amazon.com/Sony-WH-1000XM5-Canceling-Headphones-Hands-Free/dp/B09XS7JWHH/",
+              category: "electronics"
+            },
+            {
+              title: "PlayStation 5 Console Slim",
+              price: "449.99 USD",
+              image: "https://m.media-amazon.com/images/I/51QKZfyi-dL._SL1000_.jpg",
+              url: "https://www.amazon.com/PlayStation-5-Console-Slim/dp/B0C3KCFQ4G/",
+              category: "gaming"
+            }
+          ];
+          
+          // Fetch deals from the API
+          fetch('/api/deals')
+            .then(response => {
+              if (!response.ok) {
+                throw new Error('Network response was not ok');
+              }
+              return response.json();
+            })
+            .then(deals => {
+              displayDeals(deals);
+              hasLoaded = true;
+            })
+            .catch(error => {
+              console.error('Error fetching deals:', error);
+              // Use demo data if API fails
+              displayDeals(demoDeals);
+              hasLoaded = true;
+            })
+            .finally(() => {
+              isLoading = false;
+            });
+        }
+        
+        // Function to display deals
+        function displayDeals(deals) {
+          // Clear loading message
+          dealsContainer.innerHTML = '';
+          
+          // Display each deal
+          deals.forEach(deal => {
+            const dealCard = document.createElement('div');
+            dealCard.className = 'deal-card';
+            
+            dealCard.innerHTML = `
+              <img src="${deal.image}" alt="${deal.title}" onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22150%22%20height%3D%22150%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22150%22%20height%3D%22150%22%20fill%3D%22%23f5f5f5%22%2F%3E%3Ctext%20x%3D%2275%22%20y%3D%2275%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%20alignment-baseline%3D%22middle%22%20fill%3D%22%23999%22%3ENo%20Image%3C%2Ftext%3E%3C%2Fsvg%3E'">
+              <h3>${deal.title}</h3>
+              <p class="price">${deal.price}</p>
+              <span class="category">${deal.category}</span>
+              <p><a href="${deal.url}" target="_blank">View Deal</a></p>
+            `;
+            
+            dealsContainer.appendChild(dealCard);
+          });
+        }
+        
+        // Initial fetch
+        fetchDeals();
+      });
+    </script>
+  </body>
+</html>
