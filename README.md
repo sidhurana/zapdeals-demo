@@ -40,66 +40,125 @@ npm start
 ```bash
 cd backend
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-## Deployment on EC2
+### External Access
+When running in a cloud environment, make sure to configure your security groups or firewall rules to allow access to ports 80 (HTTP) and 8000 (API).
 
-To deploy the application on an EC2 instance:
+The application will be accessible at:
+- http://your-server-ip (when deployed to a server)
+- http://localhost (when running locally)
 
-1. SSH into your EC2 instance:
-   ```
-   ssh -i your-key.pem ec2-user@your-ec2-ip
-   ```
+## Deployment
 
-2. Clone the repository:
+To deploy the application:
+
+1. Clone the repository:
    ```
    git clone https://github.com/sidhurana/zapdeals-demo.git
    ```
 
-3. Navigate to the project directory:
+2. Navigate to the project directory:
    ```
    cd zapdeals-demo
    ```
 
-4. Choose the appropriate setup script:
-
-   For Amazon Linux 2:
+3. Run the setup script:
    ```
-   chmod +x deploy.sh
-   ./deploy.sh
+   chmod +x setup_nginx.sh
+   sudo ./setup_nginx.sh
    ```
 
-   For other Amazon Linux versions or if you encounter issues with amazon-linux-extras:
-   ```
-   chmod +x ec2-setup.sh
-   ./ec2-setup.sh
+4. The application will be accessible at http://localhost
+
+Note: Make sure your firewall allows inbound traffic on ports 80 (HTTP) and 8000 (API)
+
+## Production Deployment with Nginx
+
+For a production deployment with Nginx:
+
+1. Use the provided setup script:
+   ```bash
+   chmod +x setup_nginx.sh
+   sudo ./setup_nginx.sh
    ```
 
-   If you encounter package conflicts (e.g., "Cannot uninstall requests, RECORD file not found"):
-   ```
-   chmod +x ec2-setup-alt.sh
-   ./ec2-setup-alt.sh
-   ```
-   This alternative script uses a Python virtual environment to avoid conflicts with system packages.
-   
-   For t2.micro instances with limited memory (if you encounter "JavaScript heap out of memory" errors):
-   ```
-   chmod +x ec2-setup-minimal.sh
-   ./ec2-setup-minimal.sh
-   ```
-   This minimal script is optimized for low memory usage and creates swap space to prevent out-of-memory errors.
-   
-   For extremely resource-constrained t2.micro instances (if you still encounter memory issues):
-   ```
-   chmod +x ec2-setup-ultra-minimal.sh
-   ./ec2-setup-ultra-minimal.sh
-   ```
-   This ultra-minimal script skips the React build process entirely and uses a pre-built static HTML/JS implementation.
+   This script will:
+   - Install Nginx if not already installed
+   - Create the Nginx configuration at `/etc/nginx/conf.d/zapdeals.conf`
+   - Set the correct root directory to `/workspace/zapdeals-demo/frontend/build`
+   - Set the correct ownership for the files (www-data:www-data on Debian/Ubuntu or nginx:nginx on CentOS/RHEL)
+   - Disable the default Nginx site to avoid conflicts
+   - Restart Nginx
+   - Start the backend server on port 8000
 
-5. The application will be accessible at http://your-ec2-ip
+The Nginx configuration created by the script includes:
 
-Note: Make sure your EC2 security group allows inbound traffic on ports 80 (HTTP) and 8000 (API).
+```
+server {
+    listen 80;
+    listen [::]:80;
+
+    # Correct root directory path
+    root /workspace/zapdeals-demo/frontend/build;
+    index index.html;
+
+    server_name _;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:8000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+**Important Note:** Make sure the Nginx user has permission to access the frontend files. The setup script sets the correct ownership, but if you're doing this manually, remember to run:
+
+```bash
+# For Debian/Ubuntu
+sudo chown -R www-data:www-data /workspace/zapdeals-demo/frontend/build
+sudo chmod -R 755 /workspace/zapdeals-demo/frontend/build
+
+# For CentOS/RHEL
+sudo chown -R nginx:nginx /workspace/zapdeals-demo/frontend/build
+sudo chmod -R 755 /workspace/zapdeals-demo/frontend/build
+```
+
+**Troubleshooting Nginx 500 Errors:**
+
+If you encounter a 500 error with Nginx, check the following:
+
+1. Verify the root directory path in the Nginx configuration:
+   ```bash
+   grep -r "root" /etc/nginx/conf.d/
+   ```
+   Make sure it points to the correct location where your frontend files are stored.
+
+2. Check Nginx error logs:
+   ```bash
+   sudo tail -f /var/log/nginx/error.log
+   ```
+
+3. Verify file permissions:
+   ```bash
+   ls -la /workspace/zapdeals-demo/frontend/build
+   ```
+   The Nginx user (www-data or nginx) must have read access to these files.
+
+4. Test the backend API directly:
+   ```bash
+   curl http://localhost:8000/api/deals
+   ```
+   If this works but the proxied version doesn't, there might be an issue with the Nginx proxy configuration.
 
 ## Security Considerations
 
